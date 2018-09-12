@@ -1,0 +1,195 @@
+clear all
+scenario(:,1) = [ 91 182 183 183 183 457 457 457 457 728 732 732 732 1097 ...
+    1095 1097 1189];
+scenario(:,2) = [67 19 38 67 86 19 38 67 86 19 38 67 77 19 38 38 5 ];
+Nb_ser_cells = 405;
+%%
+mdl = 'IC125_FCB_hybrid';
+isModelOpen  = bdIsLoaded(mdl);
+open_system(mdl);
+
+%% Step 1: Start MATLAB Workers on Your Machine
+apool = gcp('nocreate');
+if isempty(apool)
+    apool = parpool('local');
+end
+
+%% Step 2: Set up Data Required for the Multiple Simulations
+% energy_calc
+%% Step 3: Run Multiple Simulations in a parfor (Parallel for) Loop
+for i = 1:1:length(scenario)
+    Nb_par_cells=scenario(i,1);
+    no_tanks = scenario(i,2);
+    load_system(mdl);
+    
+    %options=simset(('SrcWorkspace','current','DstWorkspace','base')); 
+tic
+    SimOut(i) = sim(mdl,'SimulationMode','normal');
+toc
+    
+    %Battery_soc(i) = SimOut(i).get('armature_energy');
+
+  
+end
+
+save('IC125_kingsX_p1','SimOut','-v7.3')
+
+%% Step 4: Plot Results of Multiple Simulations
+
+
+x=1;
+for i = 0:6:36
+
+    %rpm plot
+subplot(6,7,i+1)
+plot(SimOut(x).get('rpm_limit'),'m')
+hold on
+plot(SimOut(x).get('rpm'),'black')
+grid on
+xlabel('Time (Seconds)')
+ylabel('Rotational Speed (RPM) ')
+legend([ num2str(scenario(x,1)),' / ',num2str(scenario(x,2)),...
+    ' B ',' - ', num2str(scenario(x,3)),' / ',num2str(scenario(x,4)) ' SC ' ])
+title('RPM vs Reference RPM')
+    %Battery Current plot
+subplot(6,7,i+2)
+plot(SimOut(x).get('B_current'))
+grid on
+xlabel('Time (Seconds)')
+ylabel('Battery Current (A)')
+legend([ num2str(scenario(x,1)),' / ',num2str(scenario(x,2)),...
+    ' B ',' - ', num2str(scenario(x,3)),' / ',num2str(scenario(x,4)) ' SC ' ])
+title('Battery Current')
+    %SuperCap Current Plot
+subplot(6,7,i+3)
+plot(SimOut(x).get('SC_current'))
+grid on
+xlabel('Time (Seconds)')
+ylabel('SuperCapacitor Current (A)')
+legend([ num2str(scenario(x,1)),' / ',num2str(scenario(x,2)),...
+    ' B ',' - ', num2str(scenario(x,3)),' / ',num2str(scenario(x,4)) ' SC ' ])
+title('SuperCapacitor Current')
+    %Battery State of Charge plot
+subplot(6,7,i+4)
+plot(SimOut(x).get('B_soc'))
+grid on
+xlabel('Time (Seconds)')
+ylabel('Battery SOC % ')
+legend([ num2str(scenario(x,1)),' / ',num2str(scenario(x,2)),...
+    ' B ',' - ', num2str(scenario(x,3)),' / ',num2str(scenario(x,4)) ' SC ' ])
+title('Battery SOC %')
+    %SuperCap State of Charge Plot
+subplot(6,7,i+5)
+plot(SimOut(x).get('SC_soc'))
+grid on
+xlabel('Time (Seconds)')
+ylabel('SuperCapacitor SOC % ')
+legend([ num2str(scenario(x,1)),' / ',num2str(scenario(x,2)),...
+    ' B ',' - ', num2str(scenario(x,3)),' / ',num2str(scenario(x,4)) ' SC ' ])
+title('SuperCapacitor SOC %')
+    %Energy Consumed by Motor
+subplot(6,7,i+6)
+plot(SimOut(x).get('armature_energy'))
+grid on
+xlabel('Time (Seconds)')
+ylabel('Energy (kwh) ')
+legend([ num2str(scenario(x,1)),' / ',num2str(scenario(x,2)),...
+    ' B ',' - ', num2str(scenario(x,3)),' / ',num2str(scenario(x,4)) ' SC ' ])
+title('Energy to armature (kwh)')
+
+x=x+1;
+end
+
+
+%% plots
+figure
+for i = 1:1:length(scenario)
+    
+    
+    trip_no(i) = 100/(max(SimOut(i).get('B_soc')) - min(SimOut(i).get('B_soc')));
+    SC_volume(i) = scenario(i,3)*scenario(i,4)*V_SCap_cell;
+    trip_time(i) = max(SimOut(i).get('B_soc').Time);
+end
+
+plot(SC_volume,trip_no,'*')
+%hold on
+%myfit = polyfit(SC_volume,trip_no,1);
+%plot(myfit);
+grid on
+xlabel('SuperCapacitor Bank Volume (L)')
+ylabel('Number of trips per charge')
+figure
+plot(trip_time,trip_no,'*')
+grid on
+xlabel('SuperCapacitor Bank Volume (L)')
+ylabel('Trip Time')
+%%
+figure
+for i = 1:1:length(scenario)
+    plot(SimOut(i).get('SC_soc'))
+    hold on
+    %legend([ num2str(scenario(i,1)),' / ',num2str(scenario(i,2)),...
+    %' B ',' - ', num2str(scenario(i,3)),' / ',num2str(scenario(i,4)) ' SC ' ])
+end
+%%
+figure
+for i = 1:1:length(scenario)
+    plot(SimOut(i).get('SC_current'))
+    hold on
+    %legend([ num2str(scenario(i,1)),' / ',num2str(scenario(i,2)),...
+    %' B ',' - ', num2str(scenario(i,3)),' / ',num2str(scenario(i,4)) ' SC ' ])
+end
+grid on
+%%
+figure
+for i = 1:1:length(scenario)
+    plot(SimOut(i).get('B_current'),'r')
+    hold on
+    %legend([ num2str(scenario(i,1)),' / ',num2str(scenario(i,2)),...
+    %' B ',' - ', num2str(scenario(i,3)),' / ',num2str(scenario(i,4)) ' SC ' ])
+end
+grid on
+%%
+figure
+for i = 1:1:length(scenario)
+    plot(SimOut(i).get('Electrical_Power'),'black')
+    hold on
+    %legend([ num2str(scenario(i,1)),' / ',num2str(scenario(i,2)),...
+    %' B ',' - ', num2str(scenario(i,3)),' / ',num2str(scenario(i,4)) ' SC ' ])
+end
+grid on
+
+%%
+
+for i = 2:1:length(scenario)
+    figure
+plot(SimOut(i).get('rpm_limit'),'m')
+hold on
+    plot(SimOut(i).get('rpm'),'black')
+    hold off
+    grid on
+
+    %legend([ num2str(scenario(i,1)),' / ',num2str(scenario(i,2)),...
+    %' B ',' - ', num2str(scenario(i,3)),' / ',num2str(scenario(i,4)) ' SC ' ])
+end
+%{
+
+
+  if (strcmp(get_param(mdl,'SimulationStatus'),'stopped')==0);
+    
+    
+    end
+
+
+    Battery_soc(:,[i-1 i]) = [B_soc.Time B_soc.Data];
+    SCap_soc(:,[i-1 i]) = [SC_soc.Time SC_soc.Data];
+    Battery_current(:,[i-1 i]) = [B_current.Time B_current.Data];
+    SuperCap_current(:,[i-1 i]) = [SC_current.Time SC_current.Data];
+    Battery_volt(:,[i-1 i]) = [B_volt.Time B_volt.Data];
+    SuperCap_soc(:,[i-1 i]) = [SC_volt.Time SC_volt.Data];
+    revpm(:,[i-1 i]) = [rpm.Time rpm.Data];
+    refrev(:,[i-1 i]) = [rpm_limit.Time rpm_limit.Data];
+    Batt_energy(:,[i-1 i]) = [Battery_energy.Time Battery_energy.Data];
+    SC_energy(:,[i-1 i]) = [SuperCap_energy.Time SuperCap_energy.Data];
+    arm_energy(:,[i-1 i]) = [armature_energy.Time armature_energy.Data];
+%}
